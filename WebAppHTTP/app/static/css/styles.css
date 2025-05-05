@@ -1,0 +1,24 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+}
+
+.container {
+    text-align: center;
+    margin-top: 50px;
+}
+
+button {
+    padding: 15px 30px;
+    font-size: 18px;
+    margin: 10px;
+}
+
+#transcripcion {
+    margin-top: 20px;
+    font-size: 18px;
+}
+
+#opciones {
+    margin-top: 20px;
+}
