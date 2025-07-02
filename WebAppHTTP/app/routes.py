@@ -6,29 +6,44 @@ from dronLink.Dron import Dron
 from app.ModoGlobal import publish_command
 from gtts import gTTS
 from io import BytesIO
+from flask_socketio import SocketIO
+from app import socketio
+
 import base64
 import openai
 import json
+import os
 import mimetypes
+global recording
+global video_writer
+global filepath
+global taking_photo
+global expected_height
+global expected_width
+import cv2
+import numpy as np
+from datetime import datetime
 dron = Dron()
 main = Blueprint('main', __name__)
 
 voice_control_service = VoiceControlService()
 conectado=False
 armado=False
-voice_recognition = VoiceRecognitionSystem("C:/Users/Mariina/Desktop/RepoTFG/victorsorolla-AI-Drone-Voice-Control/WebAppHTTP/vosk-model-small-es-0.42")
+recording = False
+video_writer = None
+taking_photo = False
+voice_recognition = VoiceRecognitionSystem("/root/marina/RepoTFG/WebAppHTTP/vosk-model-small-es-0.42")
 
 
 @main.route('/static/js/<path:filename>')
 def serve_js(filename):
-    mimetypes.add_type('application/javascript', '.js')  # Asegura que .js tenga el tipo MIME correcto
+    mimetypes.add_type('application/javascript', '.js')
     return send_from_directory('static/js', filename)
 
 
 @main.route('/')
 def index():
     return render_template('movil.html')
-
 ############################################################################################################
 
 @main.route('/api/conectar_broker', methods=['POST'])
@@ -37,13 +52,13 @@ def conectar_broker():
     try:
         if mqtt_client_instance and mqtt_client_instance.is_connected():
             return jsonify({"message": "Broker ya conectado"}), 200
-        
+
         client = connect_mqtt()
         if client and client.is_connected():
             return jsonify({"message": "Conexión al broker iniciada"}), 200
         else:
-            return jsonify({"message": "Intentando conectar al broker..."}), 202 
-            
+            return jsonify({"message": "Intentando conectar al broker..."}), 202
+
     except Exception as e:
         print(f"Error en conectar_broker: {e}")
         return jsonify({"error": "Error al conectar con el broker"}), 500
@@ -64,26 +79,25 @@ def enviar_comandoMQTT():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": "Error al enviar comando"}), 500
-    
+
 ############################################################################################################
 
 @main.route('/iniciar_captura', methods=['POST'])
 def iniciar():
     voice_recognition.iniciar_captura()
     return jsonify({'message': 'Captura iniciada'})
-
 @main.route('/detener_captura', methods=['POST'])
 def detener():
-    transcription = voice_recognition.detener_captura() 
+    transcription = voice_recognition.detener_captura()
     if transcription:
         user_id = "usuario_demo"
         respuesta = enviar_comando_openai(user_id, transcription)
         return jsonify({
-            'transcription': transcription, 
+            'transcription': transcription,
             'respuesta': respuesta
         })
     return jsonify({
-        'transcription': '', 
+        'transcription': '',
         'respuesta': 'No se pudo procesar el audio'
     })
 ############################################################################################################
@@ -97,98 +111,26 @@ def enviar_mensaje_predefinido():
 
     #enviar el mensaje
     respuesta = enviar_comando_openai(mensaje)
-    
+
     #retorna mensaje y respuesta
     return jsonify({'message': mensaje, 'respuesta': respuesta})
-
-
 @main.route('/enviar_comandoIA', methods=['POST'])
 def enviar_comando():
     try:
         data = request.get_json()
         comando = data.get('comando', '').strip()
-        
+
         print("\n=== INICIO PROCESAR COMANDO ===")
         print(f"Comando recibido: {comando}")
         print(f"Modo educativo: {voice_control_service.modo_educativo}")
 
         if not comando:
             return jsonify({
-                "estado": "error", 
+                "estado": "error",
                 "message": "Por favor, proporciona un comando.",
                 "audio_url": voice_control_service.text_to_speech("Por favor, proporciona un comando.")
             }), 400
 
-        # if voice_control_service.modo_educativo:
-        #     print(f"Tema actual: {preguntas_controller.tema_actual}")
-
-            
-        #     if preguntas_controller.hay_pregunta_pendiente():
-        #         print("Validando respuesta a pregunta pendiente")
-        #         resultado = preguntas_controller.validar_respuesta(comando)
-        #         if resultado["es_correcta"]:
-        #             comando_pendiente = resultado["comando_pendiente"]
-        #             print(f"Respuesta correcta - ejecutando comando: {comando_pendiente}")
-        #             accion_resultado = voice_control_service.ejecutar_accion(comando_pendiente)
-        #             mensaje = enviar_comando_openai(
-        #                 voice_control_service.usuario_actual,
-        #                 f"RESPUESTA CORRECTA: El usuario ha respondido correctamente. "
-        #                 f"La acción {comando_pendiente} se ha ejecutado."
-        #             )
-        #             return jsonify({
-        #                 "estado": "success",
-        #                 "message": mensaje,
-        #                 "audio_url": voice_control_service.text_to_speech(mensaje)
-        #             })
-        #         else:
-        #             print("Respuesta incorrecta")
-        #             mensaje = enviar_comando_openai(
-        #                 voice_control_service.usuario_actual,
-        #                 f"RESPUESTA INCORRECTA: La respuesta correcta era {resultado['respuesta_correcta']}. "
-        #                 f"Anima al usuario a intentarlo de nuevo."
-        #             )
-        #             return jsonify({
-        #                 "estado": "error",
-        #                 "message": mensaje,
-        #                 "audio_url": voice_control_service.text_to_speech(mensaje)
-        #             })
-
-           
-        #     respuesta_ia = enviar_comando_openai(voice_control_service.usuario_actual, comando)
-        #     print(f"Interpretación de la IA: {respuesta_ia}")
-
-           
-        #     for accion in voice_control_service.acciones_clave:
-        #         if accion in respuesta_ia.lower():
-        #             print(f"Acción detectada en respuesta IA: {accion}")
-        #             # Generar pregunta educativa
-        #             pregunta = preguntas_controller.generar_pregunta(accion)
-        #             print(f"Generando pregunta para acción: {accion}")
-                    
-        #             if pregunta["status"] == "success":
-        #                 mensaje_audio = f"{pregunta['pregunta']}. Las opciones son: {', '.join(pregunta['opciones'])}"
-        #                 return jsonify({
-        #                     "estado": "pregunta",
-        #                     "pregunta": pregunta["pregunta"],
-        #                     "opciones": pregunta["opciones"],
-        #                     "audio_url": voice_control_service.text_to_speech(mensaje_audio)
-        #                 })
-        #             else:
-        #                 print(f"Error al generar pregunta: {pregunta.get('message')}")
-        #                 return jsonify({
-        #                     "estado": "error",
-        #                     "message": "Error al generar la pregunta educativa",
-        #                     "audio_url": voice_control_service.text_to_speech("Error al generar la pregunta educativa")
-        #                 })
-
-           
-            # return jsonify({
-            #     "estado": "success",
-            #     "message": respuesta_ia,
-            #     "audio_url": voice_control_service.text_to_speech(respuesta_ia)
-            # })
-
-        # Modo normal (no educativo)
         resultado = voice_control_service.procesar_comando_normal(comando)
         return jsonify(resultado)
 
@@ -208,17 +150,15 @@ def cambiar_personalidad():
     data = request.get_json()
     nueva_personalidad = data.get('personalidad', 'normal')
     user_id = "usuario_demo"
-    
+
     if nueva_personalidad not in ["normal", "gracioso", "borde", "pregunton", "plan_vuelo", "preguntón"]:
         return jsonify({"error": "Personalidad no válida"}), 400
-        
+
     voice_control_service.cambiar_personalidad(user_id, nueva_personalidad)
     return jsonify({"message": f"Personalidad cambiada a {nueva_personalidad}"}), 200
 
 
 ############################################################################################################
-
-
 @main.route('/Plandevuelo')
 def plan_de_vuelo():
     return render_template('plan_de_vuelo.html')
@@ -246,7 +186,7 @@ def conexion_dron():
             "action": "conectar"
         }
         if publish_command(comando):
-            time.sleep(0.5)  
+            time.sleep(0.5)
             from app.ModoGlobal import ultima_respuesta
             if ultima_respuesta:
                 print(f"Respuesta de conexión: {ultima_respuesta}")
@@ -255,14 +195,14 @@ def conexion_dron():
         return jsonify({"estado": "error", "mensaje": "Error al enviar comando MQTT"}), 500
     except Exception as e:
         return jsonify({"estado": "error", "mensaje": str(e)}), 500
-    
+
 ######################################################################
 
 @main.route('/armar', methods=['POST'])
 def armar():
     comando = {
         "action": "despegar",
-        "altura": 0  
+        "altura": 0
     }
     if publish_command(comando):
         return jsonify({"estado": "success"}), 200
@@ -289,7 +229,7 @@ def despegar():
         return jsonify({"estado": "error", "mensaje": "Error al enviar comando MQTT"}), 500
     except Exception as e:
         return jsonify({"estado": "error", "mensaje": str(e)}), 500
-    
+
 ######################################################################
 
 @main.route('/aterrizar', methods=['POST'])
@@ -308,7 +248,7 @@ def aterrizar():
         return jsonify({"estado": "error", "mensaje": "Error al enviar comando MQTT"}), 500
     except Exception as e:
         return jsonify({"estado": "error", "mensaje": str(e)}), 500
-    
+
 ######################################################################
 
 @main.route('/desconectar_dron', methods=['POST'])
@@ -336,11 +276,11 @@ def start_movement():
     direction = data.get('direction')
     if not direction:
         return jsonify({'estado': 'error', 'message': 'Dirección no especificada'}), 400
-    
+
     comando = {
         "action": "mover",
         "direccion": direction,
-        "metros": 3  
+        "metros": 3
     }
     if publish_command(comando):
         return jsonify({"estado": "success"}), 200
@@ -363,7 +303,6 @@ def obtener_telemetria():
     return jsonify({"estado": "success", "data": telemetria_actual}), 200
 
 ####################################################################################################################################
-
 @main.route('/start_movement2', methods=['POST'])
 def start_movement2():
     data = request.get_json()
@@ -376,7 +315,7 @@ def start_movement2():
         "direccion": direction,
         "metros": 1
     }
-    
+
     publicado = publish_command(comando)
     if not publicado:
         return jsonify({"estado": "error", "mensaje": "No se pudo publicar el comando"}), 400
@@ -394,6 +333,7 @@ def detener_movimiento():
     return jsonify({"estado": "success"}), 200
 
 ######################################################################
+######################################################################
 
 @main.route('/cambiar_estado2', methods=['POST'])
 def cambiar_estado2():
@@ -405,7 +345,7 @@ def cambiar_estado2():
             return jsonify({"estado": "error", "message": "No se proporcionó un estado válido"}), 400
 
         resultado = publish_command("cambiar_estado")
-        
+
 
         if not resultado:
             return jsonify({"estado": "error", "message": "No se pudo publicar el comando"}), 500
@@ -413,7 +353,7 @@ def cambiar_estado2():
         return jsonify(resultado), 200 if resultado.get("estado") == "success" else 500
     except Exception as e:
         return jsonify({"estado": "error", "message": f"Error en el servidor: {str(e)}"}), 500
-    
+
 
 ####################################################################################################################################
 
@@ -443,7 +383,7 @@ def procesar_comando_dron(comando): #quitar de aqui y ponerlo en algun servicio
         """Función auxiliar para procesar comandos del dron"""
         resultado = voice_control_service.procesar_respuesta(comando)
         mensaje = resultado.get("message", "")
-        
+
         return jsonify({
             "estado": resultado.get("estado", "success"),
             "message": mensaje,
@@ -453,99 +393,70 @@ def procesar_comando_dron(comando): #quitar de aqui y ponerlo en algun servicio
         })
 ####################################################################################################################################
 ####################################################################################################################################
-    
-# @main.route('/ejecutar_plan_vuelo', methods=['POST'])
-# def ejecutar_plan():
-#     try:
-#         plan = request.json
-#         comando = {
-#             "action": "ejecutar_mision",
-#             "mission": {
-#                 "waypoints": [
-#                     {"action": "takeoff", "altitude": 3}  # Altura por defecto
-#                 ]
-#             }
-#         }
-        
-#         
-#         for wp in plan.get('waypoints', []):
-#             if wp['action'] == 'move':
-#                 comando['mission']['waypoints'].append(wp)
-        
-#         
-#         comando['mission']['waypoints'].append({"action": "land"})
-        
-#         if publish_command(comando):
-#             return jsonify({"estado": "success"}), 200
-#         return jsonify({"estado": "error", "mensaje": "Error al enviar comando"}), 500
-#     except Exception as e:
-#         return jsonify({"estado": "error", "mensaje": str(e)}), 500
 
 ######################################################################
-
 @main.route('/procesar_plan_vuelo', methods=['POST'])
 def procesar_plan():
     try:
         data = request.json
         comando = data.get('comando')
-        
+
         voice_control_service.cambiar_personalidad("usuario_demo", "plan_vuelo")
-        
+
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": PERSONALIDADES["plan_vuelo"]},
                 {"role": "user", "content": comando}
             ],
-            max_tokens=1500,  
-            temperature=0.3 
+            max_tokens=1500,
+            temperature=0.3
         )
-        
+
         respuesta = response.choices[0].message.content.strip()
-        
+
         voice_control_service.cambiar_personalidad("usuario_demo", "normal")
-        
+
         print(f"Respuesta IA completa: {respuesta}")
-        
+
         try:
             if '{' in respuesta and '}' in respuesta:
                 json_str = respuesta[respuesta.index('{'):respuesta.rindex('}')+1]
                 plan = json.loads(json_str)
-                
+
                 if plan.get('type') != 'flightPlan' or not isinstance(plan.get('waypoints'), list):
                     return jsonify({"error": "Formato de plan inválido"}), 400
-                    
+
                 return jsonify(plan), 200
             else:
                 return jsonify({"error": "No se encontró JSON válido en la respuesta"}), 400
-                
+
         except json.JSONDecodeError as e:
             print(f"Error al parsear JSON: {str(e)}")
             return jsonify({"error": "Error al procesar el plan"}), 400
-            
+
     except Exception as e:
         print(f"Error en procesar_plan: {str(e)}")
         return jsonify({"error": f"Error al procesar el plan: {str(e)}"}), 500
-    
-###################################################################### 
 
+######################################################################
 @main.route('/ejecutar_plan_vuelo', methods=['POST'])
 def ejecutar_plan():
     try:
         from app.ModoGlobal import publish_command
-        
+
         plan = request.json
         waypoints = plan.get('waypoints', plan) if isinstance(plan, dict) else plan
-        
-        print(f"Plan recibido: {waypoints}")  
-        
+
+        print(f"Plan recibido: {waypoints}")
+
         mission = crear_mision({"waypoints": waypoints})
         if mission:
             comando = {
                 "action": "ejecutar_mision",
                 "mission": mission
             }
-            print(f"Enviando comando MQTT: {comando}")  
+            print(f"Enviando comando MQTT: {comando}")
             if publish_command(comando):
                 return jsonify({"estado": "success"}), 200
             return jsonify({"estado": "error", "mensaje": "Error al enviar comando MQTT"})
@@ -565,13 +476,12 @@ def check_broker():
     return jsonify({"connected": False}), 200
 
 ######################################################################
-
 @main.route('/text_to_speech', methods=['POST'])
 def text_to_speech():
     try:
         data = request.get_json()
         text = data.get('text', '')
-        
+
         mp3_fp = BytesIO()
         tts = gTTS(text=text, lang='es', slow=False)
         tts.write_to_fp(mp3_fp)
@@ -586,10 +496,9 @@ def text_to_speech():
             'estado': 'error',
             'mensaje': str(e)
         })
-    
+
 
 ######################################################################
-    
 from app.audio_processor import AudioProcessor
 
 @main.route('/procesar_audio_cliente', methods=['POST'])
@@ -605,13 +514,13 @@ def procesar_audio_cliente():
             return jsonify({'error': f'Error al inicializar el procesador de audio: {str(e)}'}), 500
 
         audio_file = request.files['audio']
-        
+
         try:
 
             audio_data = audio_file.read()
-            
+
             result = audio_processor.process_audio(audio_data)
-            
+
             if result['success']:
                 return jsonify({
                     'transcription': result['transcription']
@@ -628,11 +537,10 @@ def procesar_audio_cliente():
     except Exception as e:
         print(f"Error general en procesar_audio_cliente: {str(e)}")
         return jsonify({'error': f'Error general: {str(e)}'}), 500
-    
+
 
 
 ######################################################################
-
 @main.route('/rotar', methods=['POST'])
 def rotar():
     try:
@@ -651,3 +559,172 @@ def rotar():
 
     except Exception as e:
         return jsonify({"estado": "error", "mensaje": str(e)}), 500
+
+############### Comunicacion Camara por Websocket ######################
+@socketio.on('frame_Websocket')
+def handle_video_frame(data):
+    global recording, video_writer, filepath, taking_photo
+    global expected_height, expected_width
+    print("recibo frame de la estacion de tierra")
+    socketio.emit('frame_Websocket_from_ground', data)
+    try:
+        # Decodifica el frame siempre
+        img_data = base64.b64decode(data.split(',')[-1])
+        np_arr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if recording:
+            if video_writer is None:
+                height, width, _ = frame.shape
+                expected_height, expected_width = height, width
+                filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+                directorio_base = os.path.dirname(os.path.abspath(__file__))
+                carpeta_videos = os.path.join(directorio_base, 'videos')
+                if not os.path.exists(carpeta_videos):
+                    os.makedirs(carpeta_videos)
+                filepath = os.path.join(carpeta_videos, filename)
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video_writer = cv2.VideoWriter(filepath, fourcc, 10.0, (width, height))
+
+            if frame is None:
+                print("Frame inválido")
+            else:
+                if frame.shape[0] != expected_height or frame.shape[1] != expected_width:
+                   frame = cv2.resize(frame, (expected_width, expected_height))
+                video_writer.write(frame)
+
+        if taking_photo:
+            directorio_base = os.path.dirname(os.path.abspath(__file__))
+            carpeta_fotos = os.path.join(directorio_base, 'fotos')
+
+            if not os.path.exists(carpeta_fotos):
+                os.makedirs(carpeta_fotos)
+
+            filename = f"foto_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            filepath = os.path.join(carpeta_fotos, filename)
+
+            cv2.imwrite(filepath, frame)
+            print(f"Foto guardada en: {filepath}")
+
+            taking_photo = False
+
+    except Exception as e:
+        print(f"Error al grabar/tomar foto: {e}")
+@socketio.on('start_recording')
+def start_recording():
+    global recording
+    # Informo a estacion tierra para que grabe
+    comando = {
+        "action": "startRecord"
+    }
+    publish_command(comando)
+
+    print(f"Iniciando grabación")
+    recording = True
+
+@socketio.on('stop_recording')
+def stop_recording():
+    global recording, video_writer, filepath
+    print("Fin de grabación")
+    comando = {
+        "action": "stopRecord"
+    }
+    publish_command(comando)
+    recording = False
+    if video_writer:
+        video_writer.release()
+        print(f"Video guardado en: {filepath}")
+        socketio.emit('video_ready', {'url': f"/videos/{os.path.basename(filepath)}"})
+        video_writer = None
+
+
+@socketio.on("foto_desde_estacion")
+def recibir_foto(data):
+    print("Evento recibido con foto:", data.get("nombre"))
+    directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    CARPETA_DESTINO = os.path.join(directorio_actual, "fotos")
+    os.makedirs(CARPETA_DESTINO, exist_ok=True)
+
+    nombre = data.get("nombre", "foto_desconocida.jpg")
+    contenido = base64.b64decode(data["contenido"])
+    ruta_guardado = os.path.join(CARPETA_DESTINO, nombre)
+
+    with open(ruta_guardado, "wb") as f:
+        f.write(contenido)
+
+    print(f"Foto recibida y guardada: {ruta_guardado}")
+    return "OK"
+# Envia al Javascript una foto en especifica
+@main.route('/fotos/<path:filename>')
+def servir_foto(filename):
+    directorio_actual = os.path.dirname(os.path.abspath(__file__))
+    CARPETA_FOTOS = os.path.join(directorio_actual, "fotos")
+    return send_from_directory(CARPETA_FOTOS, filename)
+
+# Envia al Javascript la lista de imagenes a enseñar
+@main.route('/lista_fotos')
+def lista_fotos():
+    import os
+    fotos_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fotos")
+    fotos = [f for f in os.listdir(fotos_path) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+    return jsonify(fotos)
+
+@socketio.on("video_desde_estacion")
+def recibir_video(data):
+    try:
+        directorio_actual = os.path.dirname(os.path.abspath(__file__))
+        CARPETA_DESTINO = os.path.join(directorio_actual, "videos")
+        os.makedirs(CARPETA_DESTINO, exist_ok=True)
+
+        nombre = data.get("nombre", "video_desconocido.mp4")
+        contenido_b64 = data.get("contenido")
+        if contenido_b64 is None:
+            print("No se recibió contenido para el video.")
+            return "Error: no hay contenido"
+
+        contenido = base64.b64decode(contenido_b64)  # Decodificamos de base64
+        ruta_guardado = os.path.join(CARPETA_DESTINO, nombre)
+
+        with open(ruta_guardado, "wb") as f:
+            f.write(contenido)
+
+        print(f"Video recibido y guardado: {ruta_guardado}")
+        return "Video recibido correctamente"
+    except Exception as e:
+        print(f"Error al guardar el video: {e}")
+        return f"Error: {e}"
+@main.route('/videos/<path:filename>')
+def servir_video(filename):
+    return send_from_directory("videos", filename)
+
+@main.route('/lista_videos')
+def lista_videos():
+    import os
+    videos_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "videos")
+    videos = [f for f in os.listdir(videos_path) if f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))]
+    return jsonify(videos)
+
+
+@socketio.on('foto')
+def foto():
+    global taking_photo
+    comando = {
+        "action": "foto"
+    }
+    publicado = publish_command(comando)
+    taking_photo = True
+    if not publicado:
+        return jsonify({"estado": "error", "mensaje": "No se pudo publicar el comando"}), 400
+    return jsonify({"estado": "success"}), 200
+
+@main.route('/actualizarmedia', methods=['POST'])
+def actualizarmedia():
+    comando = {
+        "action": "actualizarmedia"
+    }
+    publicado = publish_command(comando)
+    if not publicado:
+        return jsonify({"estado": "error", "mensaje": "No se pudo publicar el comando"}), 400
+    return jsonify({"estado": "success"}), 200
+
+

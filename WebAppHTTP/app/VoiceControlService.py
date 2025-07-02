@@ -7,6 +7,8 @@ import base64
 from text_to_num import text2num
 import re
 import app.ModoGlobal
+import openai
+
 
 
 
@@ -74,7 +76,7 @@ class VoiceControlService:
             match_palabra = re.search(r'(\w+)\s*(metro|metros|grado|grados)', texto.lower())
             match_numero = re.search(r'(\d+)\s*(metro|metros|grado|grados)', texto.lower())
             if match_numero:
-                # Si encontramos un número en dígitos, simplemente devolvemos el número
+                # Si encontramos un número en dígitos, devolvemos el número
                 return int(match_numero.group(1))  # Convertimos el número encontrado en dígitos a entero
             elif match_palabra:
                 # Si encontramos un número en palabras, lo convertimos a número
@@ -360,7 +362,7 @@ class VoiceControlService:
             print(f"DEBUG: Resultado de la accion: {app.ModoGlobal.resultado_accion}")
 
             if personalidad_actual == "pregunton":
-                if es_confirmacion and app.ModoGlobal.resultado_accion["estado"]== "success":
+                if es_confirmacion and app.ModoGlobal.resultado_accion == "success":
                     prompt_accion = (
                         f"ACCIÓN COMPLETADA: La acción '{accion}' se ha completado.\n"
                         "REGLAS:\n"
@@ -383,7 +385,6 @@ class VoiceControlService:
 
                     )
 
-
                 mensaje = enviar_comando_openai(self.usuario_actual, prompt_accion)
                 self._reset_estado()
                 app.ModoGlobal.resultado_accion = None
@@ -391,7 +392,7 @@ class VoiceControlService:
                 return {"estado": "success", "message": mensaje}
 
             elif personalidad_actual == "normal" or "gracioso" or "borde":
-                if app.ModoGlobal.resultado_accion["estado"] == "success":
+                if app.ModoGlobal.resultado_accion == "success":
                     prompt_accion = (
                     f"ACCIÓN COMPLETADA: La acción '{accion}' se ha completado.\n"
                     "REGLAS:\n"

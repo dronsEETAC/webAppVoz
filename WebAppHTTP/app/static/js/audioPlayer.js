@@ -89,7 +89,7 @@ class AudioPlayer {
 
             this.audioElement.src = url;
             this.audioElement.playbackRate = 1.35
-            
+
             try {
                 await this.audioElement.play();
                 console.log('Reproduciendo audio:', url);
@@ -97,7 +97,7 @@ class AudioPlayer {
                 console.error('Error al reproducir audio:', error);
                 this.handlePlayEnd();
             }
-            
+
         } catch (error) {
             console.error('Error al procesar cola de audio:', error);
             this.handlePlayEnd();
@@ -115,7 +115,6 @@ class AudioPlayer {
         this.processQueue();
     }
 }
-
 
 const audioPlayer = new AudioPlayer();
 export default audioPlayer;

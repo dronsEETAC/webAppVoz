@@ -20,8 +20,6 @@ ultima_respuesta = None
 resultado_accion = None
 evento_accion = threading.Event()
 mqtt_client_instance = None
-broker = 'broker.emqx.io'
-port = 1883
 topic = "smartphone/commands"
 client_id = f'python-mqtt-{random.randint(0, 1000)}'
 
@@ -112,7 +110,6 @@ def connect_mqtt():
         else:
             print(f"DEBUG connect_mqtt: Fallo en conexión, código: {rc}")
             client.connected_flag = False
-
     try:
         if mqtt_client_instance and mqtt_client_instance.is_connected():
             print("DEBUG connect_mqtt: Ya existe una conexión activa")
@@ -120,10 +117,17 @@ def connect_mqtt():
 
         print("DEBUG connect_mqtt: Creando nueva conexión MQTT")
         client_id = f'python-mqtt-{random.randint(0, 1000)}'
-        mqtt_client_instance = mqtt_client.Client(client_id)
+        mqtt_client_instance = mqtt_client.Client(client_id, transport = "websockets")
         mqtt_client_instance.connected_flag = False
         mqtt_client_instance.on_connect = on_connect
         mqtt_client_instance.on_message = on_message
+
+        broker = 'dronseetac.upc.edu'
+        port = 8000
+
+        mqtt_client_instance.username_pw_set (
+                'dronsEETAC', 'mimara1456.'
+        )
 
         print("DEBUG connect_mqtt: Intentando conectar al broker")
         mqtt_client_instance.connect(broker, port)
@@ -148,11 +152,10 @@ def connect_mqtt():
             mqtt_client_instance.loop_stop()
             mqtt_client_instance = None
         return None
-
 def publish_command(comando):
     """Publica un comando en el broker MQTT"""
     global mqtt_client_instance
-    
+
     try:
         if not mqtt_client_instance or not mqtt_client_instance.is_connected():
             print("DEBUG publish_command: Reconectando al broker MQTT")
@@ -160,31 +163,32 @@ def publish_command(comando):
             if not mqtt_client_instance:
                 print("DEBUG publish_command: No se pudo establecer conexión MQTT")
                 return {"estado": "error"}
-            
+
             time.sleep(0.5)
 
         if isinstance(comando, dict):
             comando = json.dumps(comando)
-        
+
         print(f"DEBUG publish_command: Publicando comando: {comando}")
         result = mqtt_client_instance.publish(topic, comando)
-        
+
         if result.rc == 0:
             print("DEBUG publish_command: Comando publicado exitosamente")
             return {"estado": "success"}
         else:
             print(f"DEBUG publish_command: Error al publicar comando, código: {result.rc}")
             return {"estado": "success"}
-            
+
     except Exception as e:
         print(f"DEBUG publish_command: Error al publicar comando: {str(e)}")
         return {"estado": "error"}
 
 # LO QUE ANTES ESTABA EN DRON CONTROLS
-
 def obtener_datos_telemetria():
     try:
         publish_command({"comando": "obtener_telemetria"})
         return {"estado": "success"}
     except Exception as e:
         return {"estado": "error", "message": str(e)}
+
+

@@ -21,8 +21,8 @@ def crear_mision(waypoints):
        from app.ModoGlobal import telemetria_actual
        telemetry = telemetria_actual
 
-       if telemetry["state"] != "connected":
-           raise ValueError("No se pudo obtener la telemetría del dron")
+       '''if telemetry["state"] != "connected":
+           raise ValueError("No se pudo obtener la telemetría del dron")'''
            
        current_heading = telemetry["heading"]
        current_lat = telemetry["lat"]
