@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Plan de Vuelo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #dron-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            width: 240px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            padding: 15px;
+        }
+
+        .control-btn {
+            padding: 10px 5px;
+            font-size: 12px;
+            border-radius: 8px;
+            background: #ec7412;
+            color: white;
+            font-weight: bold;
+            border: none;
+            touch-action: manipulation;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .control-btn.active {
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            transform: scale(0.95);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #comando-texto {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            height: 60px;
+            resize: none;
+        }
+
+        .back-to-conversation {
+            position: absolute;
+            top: 10px;
+            right: 10px; 
+            background-color: #3aac30; 
+            color: white; 
+            padding: 10px 15px; 
+            border: none; 
+            border-radius: 5px; 
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            transition: background-color 0.3s ease;
+        }
+
+        .back-to-conversation:hover {
+            background-color: #0056b3;
+        }
+
+        .telemetry {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        #hablar-btn {
+            padding: 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        #hablar-btn:hover {
+            background: #0056b3;
+        }
+
+        .preview-section {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 4px;
+            margin-top: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .action-btn.red {
+            background: #dc3545;
+        }
+
+        .action-btn.green {
+            background: #28a745;
+        }
+
+        .action-btn.executing {
+            background: #ffc107;
+        }
+
+        .action-btn.active {
+            background: #4CAF50;
+        }
+
+        .success-message {
+            color: #28a745;
+        }
+        .error-message {
+            color: #dc3545;
+        }
+        .info-message {
+            color: #17a2b8;
+        }
+        .dron-icon {
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+            transform: rotate(-90deg); 
+        }
+
+        @media (orientation: landscape) {
+            .control-panel {
+                width: 240px;
+            }
+            .map-container {
+                width: 100%;
+                height: 100%;
+            }
+            .telemetry {
+                font-size: 10px;
+                padding: 4px;
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 2px;
+            }
+            #comando-texto {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 12px;
+                margin: 8px 0;
+            }
+            .button-row {
+                gap: 2px;
+            }
+            .control-btn {
+                padding: 8px;
+                font-size: 11px;
+            }
+            .action-btn, #hablar-btn {
+                padding: 6px;
+                font-size: 11px;
+            }
+            .preview-section {
+                margin-top: 5px;
+                padding: 5px;
+            }
+            .back-to-conversation {
+                position: absolute;
+                top: 11px;
+                left: 10px; 
+                right: auto;
+                background-color: #3aac30; 
+                color: white; 
+                padding: 10px 15px; 
+                border: none; 
+                border-radius: 5px; 
+                font-size: 14px;
+                cursor: pointer;
+                box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+                z-index: 2000;
+                transition: background-color 0.3s ease;
+        }
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                width: 250px;
+            }
+            .telemetry {
+                font-size: 12px;
+            }
+            .button-row button {
+                padding: 8px;
+                font-size: 14px;
+            }
+        }
+
+        @media (orientation: portrait) {
+            .map-container {
+                height: 60vh;
+            }
+            .control-panel {
+                width: 100%;
+                height: 40vh;
+                position: fixed;
+                bottom: 0;
+                top: auto;
+                right: 0;
+            }
+            .back-to-conversation {
+                position: absolute;
+                top: 10px;
+                right: 10px; 
+                background-color: #3aac30; 
+                color: white; 
+                padding: 10px 15px; 
+                border: none; 
+                border-radius: 5px; 
+                font-size: 14px;
+                cursor: pointer;
+                box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                transition: background-color 0.3s ease;
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-container">
+            <button class="back-to-conversation" onclick="window.location.href='/ModoSmartphone'">Volver a modo<br>conversacion</button>
+            <div id="dron-map"></div>
+        </div>
+        <div class="control-panel">
+            <div class="input-section">
+                <button id="conectar-btn" class="control-btn">Conectar Dron</button>
+                <textarea id="comando-texto" placeholder="Describe tu plan de vuelo..."></textarea>
+                <div class="button-row">
+                    <button id="enviar-btn" class="control-btn">Enviar Plan</button>
+                    <button id="hablar-btn" class="control-btn">Mantén para hablar</button>
+                </div>
+            </div>
+            <div class="preview-section">
+                <h3>Status:</h3>
+                <div id="plan-preview"></div>
+                <div id="preview-status"></div>
+            </div>
+            <div class="button-group">
+                <button id="ejecutar-btn" class="control-btn" style="background: #4CAF50">Ejecutar</button>
+                <button id="cancelar-btn" class="control-btn" style="background: #dc3545">Detener</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="/static/js/audioCapture.js"></script>
+    <script type="module" src="/static/js/audioInit.js"></script>
+    <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
+
+    <script>
+
+let map;
+let dronMarker;
+let dronPath;
+let previewPath;
+let lastPosition;
+let currentPlan = null;
+let estadoAnterior = null;
+let misionEnCurso = false;
+
+
+document.getElementById('conectar-btn').addEventListener('click', conectarDron);
+
+document.getElementById('enviar-btn').addEventListener('click', function() {
+    const comando = document.getElementById('comando-texto').value;
+    if (comando.trim()) {
+        procesarComando(comando);
+        reproducirMensaje('Plan de vuelo cargado correctamente. Mostrando previsualización en el mapa.');
+        document.getElementById('comando-texto').value = '';
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&key=AIzaSyBpoZk-t6K2hQ5kca6g8qDWpO7n2UoeFpA', {
+        attribution: '&copy; <a href="https://www.google.com/maps">Google Maps</a>',
+        maxZoom: 21
+    });
+
+   map = L.map('dron-map', {
+       layers: [satellite],
+       maxZoom: 21
+   }).setView([41.2763225, 1.9883753], 19);
+
+   dronPath = L.polyline([], {color: 'red'}).addTo(map);
+   previewPath = L.polyline([], {
+       color: 'blue',
+       dashArray: '10, 10',
+       opacity: 0.6
+   }).addTo(map);
+
+   setInterval(actualizarPosicionDron, 1000);
+
+   document.getElementById('comando-texto').addEventListener('keypress', function(e) {
+       if (e.key === 'Enter' && !e.shiftKey) {
+           e.preventDefault();
+           procesarComando(this.value);
+           this.value = '';
+       }
+   });
+
+   const hablarBtn = document.getElementById('hablar-btn');
+if (hablarBtn) {
+    // Eventos para móvil
+    hablarBtn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        iniciarCapturaDeAudio();
+    }, { passive: false });
+
+    hablarBtn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        detenerCapturaDeAudio();
+    }, { passive: false });
+
+    // Eventos para PC
+    hablarBtn.addEventListener('mousedown', iniciarCapturaDeAudio);
+    hablarBtn.addEventListener('mouseup', detenerCapturaDeAudio);
+}
+        document.getElementById('ejecutar-btn').addEventListener('click', ejecutarPlan);
+    document.getElementById('cancelar-btn').addEventListener('click', cancelarPlan);
+    });
+
+function conectarDron() {
+    console.log("Intentando conectar dron...");
+    fetch('/conexion_dron', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Respuesta recibida MQTT:", data);
+        const btn = document.getElementById('conectar-btn');
+
+        if (data.estado === "success") {
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = '#4CAF50';
+            }
+            console.log('Dron conectado correctamente');
+        } else {
+            if (btn) {
+                btn.style.background = '#ff0000';
+                setTimeout(() => {
+                    btn.style.background = '#ec7412'; 
+                }, 2000);
+            }
+            console.error('Error al conectar el dron:', data.mensaje || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error en conexión:', error);
+        const btn = document.getElementById('conectar-btn');
+        if (btn) {
+            btn.style.background = '#ff0000'; // Rojo
+            setTimeout(() => {
+                btn.style.background = '#ec7412'; // Naranja 
+            }, 2000);
+        }
+    });
+}
+
+function procesarComando(comando) {
+   fetch('/procesar_plan_vuelo', {
+       method: 'POST',
+       headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify({comando: comando})
+   })
+   .then(response => response.json())
+   .then(data => {
+       if (data.type === 'flightPlan') {
+           currentPlan = data;
+           mostrarPreviewRuta(data.waypoints);
+       }
+   });
+}
+
+function mostrarPreviewRuta(waypoints) {
+    if (!dronMarker) return;
+    fetch('/telemetria')
+        .then(response => response.json())
+        .then(data => {
+            if (data.estado === "success" && data.data) {
+                const coordinates = [];
+                let currentPos = dronMarker.getLatLng();
+                let currentHeading = data.data.heading;
+                coordinates.push(currentPos);
+
+                waypoints.forEach((wp) => {
+                    if (wp.action === 'move') {
+                        const newPos = calcularNuevaPosicion(currentPos, wp.direction, wp.distance, currentHeading);
+                        coordinates.push(newPos);
+                        currentPos = newPos;
+                    } else if (wp.action === 'rotate') {
+                        if (wp.clockwise === false) {
+                            currentHeading = (currentHeading - wp.degrees + 360) % 360;
+                        } else {
+                            currentHeading = (currentHeading + wp.degrees) % 360;
+                        }
+                    }
+                });
+
+                previewPath.setLatLngs(coordinates);
+            }
+        });
+}
+
+function actualizarIconoConHeading(heading) {
+    return `
+        <div class="dron-icon" style="transform: rotate(${heading}deg)">
+            ${dronMarker ? '🔴' : '⭕'}
+            <div class="direction-arrow">➤</div>
+        </div>
+    `;
+}
+
+function actualizarMarcadorDron(newLatLng, dronIcon) {
+    if (!dronMarker) {
+        dronMarker = L.marker(newLatLng, {
+            icon: L.divIcon({
+                className: 'dron-icon',
+                html: dronIcon,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12]
+            }),
+            rotationAngle: 0,
+            rotationOrigin: 'center center'
+        }).addTo(map);
+        map.setView(newLatLng, 19);
+    } else {
+        const currentRotation = dronMarker.options.rotationAngle || 0;
+        dronMarker.setIcon(L.divIcon({
+            className: 'dron-icon',
+            html: dronIcon,
+            iconSize: [25, 25],
+            iconAnchor: [12, 12]
+        }));
+        dronMarker.setLatLng(newLatLng);
+        dronMarker.setRotationAngle(currentRotation);
+    }
+    actualizarRuta(newLatLng);
+}
+
+
+const style = document.createElement('style');
+style.textContent = `
+    .dron-icon {
+        font-size: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transform-origin: center center;
+        transform: rotate(-90deg); /* Ajuste base para que la flecha apunte en la dirección correcta */
+    }
+`;
+document.head.appendChild(style);
+
+
+function calcularNuevaPosicion(pos, direccion, distancia, currentHeading) {
+    const R = 6378137;
+    let d = parseFloat(distancia);
+
+    const lat1 = pos.lat * Math.PI / 180;
+    const lon1 = pos.lng * Math.PI / 180;
+
+    let bearing;
+    const dir_lower = direccion.toLowerCase();
+
+
+        if (dir_lower === 'forward') {
+            bearing = currentHeading;
+            console.log('Bearing calculado para forward:', bearing, 'desde heading:', currentHeading);
+        } else if (dir_lower === 'right') {
+            bearing = (currentHeading + 90) % 360;
+            console.log('Bearing calculado para right:', bearing, 'desde heading:', currentHeading);
+        } else if (dir_lower === 'left') {
+            bearing = (currentHeading - 90 + 360) % 360;  // Asegura un valor positivo
+            console.log('Bearing calculado para left:', bearing, 'desde heading:', currentHeading);
+        } else if (dir_lower === 'back') {
+            bearing = (currentHeading + 180) % 360;
+            console.log('Bearing calculado para back:', bearing, 'desde heading:', currentHeading);
+        } else {
+        const bearings = {
+            'north': 0,
+            'northeast': 45,
+            'east': 90,
+            'southeast': 135,
+            'south': 180,
+            'southwest': 225,
+            'west': 270,
+            'northwest': 315
+        };
+        bearing = bearings[dir_lower] || 0;
+    }
+
+    const bearingRad = bearing * Math.PI / 180;
+
+    console.log("DEBUG:");
+    console.log("pos.lat:", pos.lat, typeof pos.lat);
+    console.log("pos.lng:", pos.lng, typeof pos.lng);
+    console.log("distancia:", distancia, typeof distancia);
+    console.log("currentHeading:", currentHeading, typeof currentHeading);
+    console.log("bearing:", bearing, typeof bearing);
+
+    const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(d/R) +
+        Math.cos(lat1) * Math.sin(d/R) * Math.cos(bearingRad)
+    );
+
+    const lon2 = lon1 + Math.atan2(
+        Math.sin(bearingRad) * Math.sin(d/R) * Math.cos(lat1),
+        Math.cos(d/R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+    if (isNaN(lat2) || isNaN(lon2)) {
+        console.error("Error: lat2 o lon2 es NaN");
+        return pos;
+    }
+
+
+    return L.latLng(
+        lat2 * 180 / Math.PI,
+        lon2 * 180 / Math.PI
+    );
+}
+
+function playAudio(base64Audio) {
+    const audio = new Audio(base64Audio);
+    audio.playbackRate = 1.3;
+    audio.play().catch(error => console.error('Error reproduciendo audio:', error));
+}
+
+
+function reproducirMensaje(texto) {
+    fetch('/text_to_speech', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: texto })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.audio_url) {
+            playAudio(data.audio_url);
+        }
+    })
+    .catch(error => console.error('Error obteniendo audio:', error));
+}
+
+function ejecutarPlan() {
+    if (!currentPlan) return;
+
+    estadoAnterior = null;
+    misionEnCurso = true;
+
+    const ejecutarBtn = document.getElementById('ejecutar-btn');
+    ejecutarBtn.textContent = 'Ejecutando...';
+    ejecutarBtn.disabled = true;
+    ejecutarBtn.classList.add('executing');
+    ejecutarBtn.classList.remove('green');
+
+    fetch('/ejecutar_plan_vuelo', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(currentPlan)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.estado === 'success') {
+            mostrarMensaje('Plan de vuelo iniciado', 'success');
+            reproducirMensaje('Atención, plan de vuelo iniciándose');
+            checkMissionStatus();
+        } else {
+            throw new Error(data.mensaje || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error al ejecutar el plan: ' + error.message, 'error');
+        ejecutarBtn.textContent = 'Ejecutar';
+        ejecutarBtn.disabled = false;
+        ejecutarBtn.classList.remove('executing');
+        ejecutarBtn.classList.add('green');
+    });
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    const statusDiv = document.getElementById('preview-status');
+    statusDiv.textContent = mensaje;
+    statusDiv.className = tipo === 'success' ? 'success-message' : 'error-message';
+    setTimeout(() => {
+        statusDiv.textContent = '';
+        statusDiv.className = '';
+    }, 5000);
+}
+
+function cancelarPlan() {
+    currentPlan = null;
+    if (previewPath) {
+        previewPath.setLatLngs([]);
+    }
+    if (dronPath) {
+        dronPath.setLatLngs([]);
+    }
+    fetch('/aterrizar', { method: 'POST' });
+    mostrarMensaje('Mision cancelada', 'error');
+    reproducirMensaje('Misión cancelada');
+}
+
+function actualizarPosicionDron() {
+    console.log("Actualizando telemetría...");
+    fetch('/telemetria')
+        .then(response => response.json())
+        .then(data => {
+            if (data.estado === "success" && data.data) {
+                console.log("Datos telemetría recibidos:", data.data);
+                if (data.data.lat && data.data.lon) {
+                    const isFlying = data.data.state === "flying";
+                    const dronIcon = isFlying ? '🔴' : '⭕';
+                    const rawHeading = data.data.heading || 0;
+                    const adjustedHeading = rawHeading -90; //ajustado para que 0° apunte al norte
+                    
+                    actualizarMarcadorDron(
+                        [data.data.lat, data.data.lon],
+                        dronIcon,
+                        adjustedHeading
+                    );
+                }
+            } else {
+                console.warn("No se recibieron datos de telemetría válidos");
+            }
+        })
+        .catch(error => console.error('Error obteniendo telemetría:', error));
+}
+ function actualizarTelemetria(telemetria) {
+    document.getElementById('lat-display').textContent = `Lat: ${telemetria.lat}`;
+    document.getElementById('lon-display').textContent = `Lon: ${telemetria.lon}`;
+    document.getElementById('alt-display').textContent = `Alt: ${telemetria.alt}m`;
+    document.getElementById('speed-display').textContent = `Vel: ${telemetria.velocidad}m/s`;
+ }
+
+
+ function actualizarMarcadorDron(newLatLng, dronIcon, heading) {
+    const iconStyle = `
+        .dron-icon {
+            position: relative;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            transform: rotate(${heading}deg);
+            transition: transform 0.3s ease;
+        }
+        .direction-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            color: #000000;
+            pointer-events: none;
+            z-index: 1000;
+        }
+    `;
+
+    let styleElement = document.getElementById('dron-icon-style');
+    if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = 'dron-icon-style';
+        document.head.appendChild(styleElement);
+    }
+    styleElement.textContent = iconStyle;
+
+    const iconHtml = `
+        <div class="dron-icon">
+            ${dronIcon}
+            <div class="direction-arrow">➤</div>
+        </div>
+    `;
+
+    if (!dronMarker) {
+        dronMarker = L.marker(newLatLng, {
+            icon: L.divIcon({
+                className: 'dron-icon-wrapper',
+                html: iconHtml,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12]
+            })
+        }).addTo(map);
+        map.setView(newLatLng, 19);
+    } else {
+        dronMarker.setIcon(L.divIcon({
+            className: 'dron-icon-wrapper',
+            html: iconHtml,
+            iconSize: [25, 25],
+            iconAnchor: [12, 12]
+        }));
+        dronMarker.setLatLng(newLatLng);
+    }
+    
+    actualizarRuta(newLatLng);
+}
+
+function actualizarRuta(newLatLng) {
+   if (lastPosition) {
+       const dist = map.distance(lastPosition, newLatLng);
+       if (dist < 1000) {
+           dronPath.addLatLng(newLatLng);
+       } else {
+           dronPath.removeFrom(map);
+           dronPath = L.polyline([], {color: 'red'}).addTo(map);
+       }
+   }
+   lastPosition = newLatLng;
+}
+
+function iniciarCapturaDeAudio() {
+   document.getElementById('hablar-btn').textContent = "Escuchando...";
+   fetch('/iniciar_captura', { method: 'POST' });
+}
+
+function detenerCapturaDeAudio() {
+   fetch('/procesar_audio_cliente', { 
+       method: 'POST'
+   })
+   .then(response => response.json())
+   .then(data => {
+       document.getElementById('hablar-btn').textContent = "Mantén para hablar";
+       if (data.transcription) {
+           document.getElementById('comando-texto').value = data.transcription;
+           // procesar el comando como plan de vuelo
+           procesarComando(data.transcription);
+           document.getElementById('preview-status').textContent = 'Plan procesado. Listo para ejecutar.';
+       }
+   })
+   .catch(error => {
+       console.error('Error al procesar audio:', error);
+       document.getElementById('hablar-btn').textContent = "Mantén para hablar";
+       document.getElementById('preview-status').textContent = 'Error al procesar el audio';
+   });
+}
+
+document.getElementById('enviar-btn').addEventListener('click', function() {
+    const comando = document.getElementById('comando-texto').value;
+    if (comando.trim()) {
+        procesarComando(comando);
+        document.getElementById('preview-status').textContent = 'Plan procesado. Listo para ejecutar.';
+    }
+});
+
+
+
+function checkMissionStatus() {
+    const ejecutarBtn = document.getElementById('ejecutar-btn');
+    ejecutarBtn.textContent = 'Ejecutando...';
+    ejecutarBtn.disabled = true;
+    ejecutarBtn.classList.add('executing');
+    ejecutarBtn.classList.remove('green');
+
+    let misionIniciada = false;
+    let checkInterval = setInterval(() => {
+        fetch('/telemetria')
+            .then(response => response.json())
+            .then(data => {
+                if (data.estado === "success" && data.data) {
+                    const telemetria = data.data;
+                    console.log("Estado actual de misión:", telemetria.state);
+
+                    if (telemetria.state === "flying" && !misionIniciada) {
+                        misionIniciada = true;
+                        mostrarMensaje('Misión en progreso...', 'info');
+                    }
+                    
+                    if (misionIniciada && telemetria.state === "connected") {
+                        console.log("Misión completada, limpiando rutas");
+                        
+                        if (previewPath) {
+                            previewPath.setLatLngs([]);
+                        }
+                        if (dronPath) {
+                            dronPath.setLatLngs([]);
+                        }
+                        
+                        ejecutarBtn.textContent = 'Ejecutar';
+                        ejecutarBtn.disabled = false;
+                        ejecutarBtn.classList.remove('executing');
+                        ejecutarBtn.classList.add('green');
+                        
+                        mostrarMensaje('Misión finalizada', 'success');
+                        reproducirMensaje('Misión finalizada con éxito');
+                        
+                        currentPlan = null;
+                        misionIniciada = false;
+                        
+                        clearInterval(checkInterval);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error telemetría:', error);
+                mostrarMensaje('Error al verificar estado de misión', 'error');
+            });
+    }, 1000);
+
+    // timeour de seguridad después de 2 minutos?
+    setTimeout(() => {
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            if (!misionIniciada) {
+                mostrarMensaje('Tiempo de espera agotado', 'error');
+                ejecutarBtn.textContent = 'Ejecutar';
+                ejecutarBtn.disabled = false;
+                ejecutarBtn.classList.remove('executing');
+                ejecutarBtn.classList.add('green');
+            }
+        }
+    }, 120000);
+}
+
+        
+    </script>
+
+    
+</body>
+</html>

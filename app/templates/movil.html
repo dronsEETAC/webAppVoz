@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+   <meta charset="UTF-8">
+   <!-- Vista móvil sin zoom, y máximo ancho la pantalla -->
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+   <title>Control Smartphone</title>
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+   <!-- Fuerza 'pantalla completa' en iOS y Android -->
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+   <meta name="mobile-web-app-capable" content="yes">
+   <meta name="theme-color" content="#000000">
+
+   <style>
+       * {
+           margin: 0;
+           padding: 0;
+           box-sizing: border-box;
+           touch-action: manipulation;
+           -webkit-tap-highlight-color: transparent;
+       }
+
+       body {
+           width: 100%;
+           height: 100%;
+           overflow: hidden;
+           font-family: Arial, sans-serif;
+       }
+
+       .container {
+           position: relative;
+           width: 100vw;
+           height: 100vh;
+           overflow: hidden;
+           transition: all 0.3s ease;
+       }
+
+       .map-container {
+           position: absolute;
+           top: 0;
+           left: 0;
+           right: 0;
+           bottom: 0;
+           width: 100%;
+           height: 100%;
+       }
+       #dron-map {
+           width: 100%;
+           height: 100%;
+       }
+
+       .center-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+       }
+
+       .sidebar {
+           position: absolute;
+           top: 20px;
+           right: 30px;
+           width: 180px;
+           background: #f5f5f5;
+           border-radius: 8px;
+           box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+           z-index: 1000;
+           padding: 15px;
+           display: flex;
+           flex-direction: column;
+           gap: 10px;
+       }
+
+       .mode-selector {
+           display: grid;
+           grid-template-columns: repeat(3, 1fr);
+           gap: 8px;
+           padding: 8px;
+           background: #fff;
+           box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+       }
+
+       .mode-btn {
+           padding: 12px;
+           border: none;
+           border-radius: 5px;
+           background: #007bff;
+           color: white;
+           font-weight: bold;
+           font-size: 14px;
+           cursor: pointer;
+           transition: background 0.3s ease;
+       }
+
+         .mode-btn.active {
+           background: #0056b3;
+       }
+
+       .control-panel {
+           padding: 5px;
+           overflow-y: auto;
+           display: flex;
+           flex-direction: column;
+           gap: 10px;
+       }
+
+       #conversation-mode {
+           display: flex;
+           flex-direction: column;
+           gap: 10px;
+       }
+
+       #conversation-mode, #manual-mode {
+            position: relative;
+            width: 100%;
+            display: none;
+       }
+
+       #conversation-mode.active, #manual-mode.active {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+       }
+
+       .personality-buttons {
+           display: grid;
+           grid-template-columns: repeat(2, 1fr);
+           gap: 8px;
+
+       }
+
+       .personality-btn {
+           padding: 12px 8px;
+           border: none;
+           border-radius: 5px;
+           color: white;
+           font-weight: bold;
+           font-size: 14px;
+           transition: all 0.3s ease;
+           position: relative;
+           overflow: hidden;
+           cursor: pointer;
+       }
+
+       .personality-btn.active {
+           transform: scale(0.95);
+           box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+       }
+
+       .personality-btn.active::after {
+           content: '✓';
+           position: absolute;
+           top: 2px;
+           right: 5px;
+           font-size: 12px;
+       }
+
+       #hablar-btn {
+           width: 100%;
+           padding: 15px;
+           border: none;
+           border-radius: 25px;
+           background: #007bff;
+           color: white;
+           font-size: 16px;
+           font-weight: bold;
+           cursor: pointer;
+           transition: background 0.3s ease;
+       }
+
+
+       #botonFotoWebSockets {
+           flex: 1;
+           padding: 12px;
+           background: #ec7412;
+           color: white;
+           border: none;
+           border-radius: 8px;
+           font-weight: bold;
+           cursor: pointer;
+           transition: background 0.3s ease;
+       }
+
+       #toggle-view-btn {
+           flex: 1;
+           padding: 12px;
+           background: #ec7412;
+           color: white;
+           border: none;
+           border-radius: 8px;
+           font-weight: bold;
+           cursor: pointer;
+           transition: background 0.3s ease;
+       }
+
+       #hablar-btn:hover {
+           background: #0056b3;
+       }
+
+       .transcription {
+           background: white;
+           padding: 10px;
+           border-radius: 5px;
+           font-size: 13px;
+           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+       }
+
+       .flight_information {
+           background: white;
+           padding: 10px;
+           border-radius: 5px;
+           font-size: 11px;
+           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+       }
+       .titulo {
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+
+       /* Modo Manual */
+       #manual-mode {
+           display: none;
+           flex-direction: column;
+           gap: 10px;
+       }
+
+       .basic-controls {
+           display: grid;
+           grid-template-columns: repeat(2, 1fr);
+           gap: 8px;
+       }
+
+       .direction-pad {
+           display: grid;
+           grid-template-columns: repeat(3, 1fr);
+           gap: 8px;
+       }
+
+       .control-btn {
+           padding: 15px 8px;
+           border: none;
+           border-radius: 5px;
+           background: #ec7412;
+           color: white;
+           font-weight: bold;
+           font-size: 14px;
+           cursor: pointer;
+           transition: all 0.3s ease;
+           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+       }
+
+       .control-btn.active {
+           background: linear-gradient(145deg, #4CAF50, #45a049);
+           transform: scale(0.95);
+           box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+       }
+
+       .control-btn:active {
+           transform: scale(0.95);
+           box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+       }
+
+       .button-group {
+           display: flex;
+           gap: 4px;
+           margin-top: 10px;
+       }
+
+       .action-btn {
+           flex: 1;
+           padding: 12px;
+           background: #4CAF50;
+           color: white;
+           border: none;
+           border-radius: 8px;
+           font-weight: bold;
+           cursor: pointer;
+           transition: background 0.3s ease;
+       }
+
+       .action-btn.red {
+           background: #dc3545;
+       }
+
+       .action-btn.green {
+           background: #28a745;
+       }
+
+       .action-btn.executing {
+           background: #ffc107;
+       }
+
+       .action-btn.active {
+           background: #4CAF50;
+       }
+
+
+       .success-message {
+           color: #28a745;
+       }
+
+       .error-message {
+           color: #dc3545;
+       }
+
+       .info-message {
+           color: #17a2b8;
+       }
+
+       .dron-icon {
+           font-size: 20px;
+           display: flex;
+           justify-content: center;
+           align-items: center;
+       }
+
+        @media (orientation: landscape) {
+        .sidebar {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            width: 180px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 85%;
+        }
+
+           .map-container {
+               width: 100%;
+               height: 100%;
+           }
+
+
+           .personality-btn {
+               padding: 8px 4px;
+               font-size: 12px;
+           }
+
+           .personality-btn.active::after {
+               font-size: 10px;
+               top: 1px;
+               right: 3px;
+           }
+
+           .control-btn {
+               padding: 10px 5px;
+               font-size: 12px;
+               border-radius: 8px;
+               background: linear-gradient(145deg, #ff8f00, #ff6d00);
+               box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+           }
+
+           .control-btn.active {
+               background: linear-gradient(145deg, #4CAF50, #45a049);
+               transform: scale(0.95);
+               box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+           }
+
+            .control-btn:active {
+               transform: scale(0.95);
+               box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+           }
+
+           .direction-pad {
+               display: grid;
+               grid-template-columns: repeat(3, 1fr);
+               gap: 4px;
+               margin-top: 5px;
+           }
+
+           .basic-controls {
+               display: grid;
+               grid-template-columns: 1fr;
+               gap: 4px;
+           }
+
+           .mode-selector {
+               display: grid;
+               grid-template-columns: repeat(3, 1fr);
+               gap: 4px;
+               padding: 4px;
+           }
+
+           .mode-btn {
+               padding: 8px;
+               font-size: 12px;
+           }
+
+           .mode-btn.active {
+               background: linear-gradient(145deg, #0066cc, #004499);
+               box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+           }
+
+           .transcription {
+               font-size: 11px;
+               padding: 8px;
+               max-height: 20vh;
+               overflow-y: auto;
+           }
+
+            #texto-respuesta {
+               font-size: 11px;
+               line-height: 1.3;
+               margin-top: 4px;
+           }
+
+           #hablar-btn {
+               padding: 10px;
+               font-size: 12px;
+           }
+
+           .personality-buttons {
+               display: grid;
+               grid-template-columns: 1fr;
+               gap: 4px;
+           }
+
+
+           #botonFotoWebSockets {
+               padding: 10px;
+               font-size: 12px;
+           }
+
+           #toggle-view-btn {
+               padding: 10px;
+               font-size: 12px;
+           }
+
+           .camera-container {
+                width: 100%;
+                height: 100%;
+                display: none;
+            }
+
+           .video-stream {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+           }
+            #galeria-container {
+                position: absolute;
+                top: 1px;     /* más arriba */
+                left: 100px;    /* más a la izquierda */
+                transform: scale(0.8); /* opcional: reducir tamaño general */
+                transform-origin: top left; /* asegura que escale desde arriba a la izquierda */
+                z-index: 1000;  /* asegúrate de que esté por encima */
+                max-width: 80%;
+                margin: auto;
+            }
+
+            .tabs-container {
+
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              margin-bottom: 10px;
+              gap: 10px;
+            }
+
+            #slider-container-fotos,
+            #slider-container-videos {
+                transform: scale(0.8);
+            }
+
+            .tab-btn,
+              #prev-fotos,
+              #next-fotos,
+              #prev-videos,
+              #next-videos,
+              .boton,
+              .control-btn,
+              .personality-btn {
+                font-size: 12px;
+                padding: 6px 10px;
+                transform: scale(0.9); /* Reduce botones */
+            }
+
+            #imagen-grande img,
+            #video-grande video {
+                max-width: 100%;
+                height: auto;
+                margin-top: 5px;
+                margin-bottom: 5px;
+            }
+       }
+
+@media (orientation: portrait) {
+           .container {
+               flex-direction: column;
+           }
+
+           .sidebar {
+               width: 90%;
+               height: 42vh;
+               position: fixed;
+               bottom: 0;
+               top: auto;
+               right: 20px;
+           }
+
+           .map-container {
+               height: 60vh;
+               position: absolute;
+               top: 0;
+               left: 0;
+               right: 0;
+               bottom: 40vh;
+           }
+
+           .camera-container {
+                width: 100%;
+                height: 100%;
+                display: none;
+            }
+
+           .video-stream {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+           }
+
+}
+
+@media (max-width: 768px) {
+           .control-panel {
+
+               display: grid;
+           }
+
+           .telemetry {
+               font-size: 12px;
+           }
+
+       .button-row button {
+               padding: 8px;
+               font-size: 14px;
+       }
+}
+
+       .boton {
+          flex: 1;
+          padding: 12px;
+          background: #ec7412;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background 0.3s ease;
+          width: 100%;
+          margin-top: 5px;
+          font-size: 12px;
+          box-sizing: border-box;
+       }
+
+       .galeria-container {
+          max-width: 800px;
+          margin: auto;
+       }
+
+        .tabs-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-bottom: 10px;
+          gap: 10px;
+        }
+
+        .tab-btn {
+          padding: 15px 20px;
+          cursor: pointer;
+          background: #eee;
+          border: none;
+          border-radius: 10px;
+          font-weight: bold;
+          font-size: 18px;
+          text-align: center;
+        }
+
+        .tab-btn.active {
+          background: #4CAF50;
+          color: white;
+        }
+
+
+       #slider-container {
+          position: relative;
+          max-width: 450px;
+          margin: 0 auto;
+          border-radius: 8px;
+          overflow: hidden;
+       }
+
+        #imagen-grande img {
+          width: 100%;
+          max-height: 450px;
+          object-fit: contain;
+          border-radius: 8px;
+          display: block;
+        }
+
+        #prev-btn, #next-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          background-color: rgba(0,0,0,0.5);
+          border: none;
+          color: white;
+          font-size: 2rem;
+          padding: 0 10px;
+          cursor: pointer;
+          border-radius: 4px;
+          user-select: none;
+          z-index: 10;
+        }
+
+        #prev-btn {
+          left: 5px;
+        }
+
+        #next-btn {
+          right: 5px;
+        }
+
+       #slider-container-fotos, #slider-container-videos {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          max-width: 600px;
+          margin: auto;
+          gap: 10px;
+        }
+
+       #prev-fotos, #next-fotos, #prev-videos, #next-videos {
+          font-size: 40px;
+          width: 50px;
+          height: 50px;
+          background: rgba(0,0,0,0.5);
+          color: white;
+          border: none;
+          border-radius: 25px;
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          touch-action: manipulation;
+       }
+
+        #prev-fotos:hover, #next-fotos:hover,
+        #prev-videos:hover, #next-videos:hover {
+          background: rgba(0,0,0,0.8);
+        }
+
+
+</style>
+</head>
+<body>
+    <div class="container">
+      <div class="sidebar">
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="switchMode('conversation')">
+                <img src="static/emoticonos/conversacion.png" alt="Conversación" style="width: 25px; height: 25px;">
+            </button>
+            <button class="mode-btn" onclick="switchMode('manual')">
+                <img src="static/emoticonos/manual3.png" alt="Manual" style="width: 25px; height: 25px;">
+            </button>
+            <button class="mode-btn" onclick="window.location.href='/Plandevuelo'">
+                <img src="static/emoticonos/plan_vuelo2.png" alt="PlandeVuelo" style="width: 25px; height: 25px;">
+            </button>
+        </div>
+
+        <div class="control-panel">
+
+          <div id="conversation-mode" class="active">
+            <div class="personality-buttons">
+              <button class="personality-btn active" style="background: #4CAF50;" data-personality="normal">Normal</button>
+              <button class="personality-btn" style="background: #2196F3;" data-personality="gracioso">Gracioso</button>
+              <button class="personality-btn" style="background: #f44336;" data-personality="borde">Borde</button>
+              <button class="personality-btn" style="background: #9C27B0;" data-personality="pregunton">Preguntón</button>
+            </div>
+
+            <button id="hablar-btn">Mantén para hablar</button>
+
+            <div class="transcription">
+              <p>Transcripción: <span id="texto-transcrito">--</span></p>
+              <p>Respuesta: <span id="texto-respuesta">--</span></p>
+            </div>
+          </div>
+
+
+          <div id="manual-mode" style="display: none;">
+            <div class="basic-controls">
+              <button class="control-btn" onclick="conectarDron()">Conectar</button>
+              <button class="control-btn" onclick="despegarDron()">Despegar</button>
+              <button class="control-btn" onclick="aterrizarDron()">Aterrizar</button>
+              <button class="control-btn" onclick="desconectarDron()">Desconectar</button>
+            </div>
+
+            <div class="direction-pad">
+              <button class="control-btn" data-direction="North">▲ Norte</button>
+              <button class="control-btn" data-direction="Up">▲ Subir</button>
+              <button class="control-btn" data-direction="South">▼ Sur</button>
+              <button class="control-btn" data-direction="West">◄ Oeste</button>
+              <button class="control-btn" data-direction="Down">▼ Bajar</button>
+              <button class="control-btn" data-direction="East">► Este</button>
+            </div>
+</div>
+
+
+          <div id="flight-camera-controls" class="shared-controls">
+            <div class="flight_information">
+              <p class="titulo">Información de vuelo</p>
+              <p>Altura: <span id="texto-altura">--</span> m</p>
+              <p>Velocidad: <span id="texto-velocidad">--</span> m/s</p>
+            </div>
+
+            <button id="limpiar-btn" class="boton" onclick="limpiarRuta()">Limpiar ruta</button>
+
+            <div class="camera-controls">
+              <button id="botonFotoWebSockets" class="boton" onclick="foto()">Toma foto</button>
+              <button id="botonRecordWebSockets" class="boton" onclick="recordWebsockets()">Iniciar grabación</button>
+              <button id="toggle-view-btn" class="boton" onclick="toggleView()">Ver Cámara</button>
+            </div>
+
+              <button id="galeria-btn" class="boton" onclick="galeria()">Galeria</button>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="map-container" id="map-container">
+        <div id="dron-map"></div>
+      </div>
+
+      <div class="camera-container" id="camera-container" style="display: none;">
+        <img id="video-stream" />
+      </div>
+
+      <div id="galeria-container">
+          <div class="tabs-container">
+              <button class="tab-btn active" data-tab="fotos">Fotos</button>
+              <button class="tab-btn" data-tab="videos">Videos</button>
+          </div>
+
+          <!-- Contenedor Fotos -->
+          <div id="galeria-fotos" class="tab-content" style="display: block;">
+            <div id="slider-container-fotos">
+              <button id="prev-fotos" aria-label="Anterior">&#10094;</button>
+              <div id="imagen-grande"></div>
+              <button id="next-fotos" aria-label="Siguiente">&#10095;</button>
+            </div>
+<p id="nombre-foto" style="text-align:center; margin-top: 5px;"></p>
+          </div>
+
+          <!-- Contenedor Videos -->
+          <div id="galeria-videos" class="tab-content" style="display: none;">
+            <div id="slider-container-videos">
+              <button id="prev-videos" aria-label="Anterior">&#10094;</button>
+              <div id="video-grande"></div>
+              <button id="next-videos" aria-label="Siguiente">&#10095;</button>
+            </div>
+              <p id="nombre-video" style="text-align:center; margin-top: 5px;"></p>
+          </div>
+      </div>
+
+      <audio id="audio-respuesta" style="display: none;" preload="auto" playsinline webkit-playsinline></audio>
+    </div>
+
+
+   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+   <script type="module" src="/static/js/audioCapture.js"></script>
+    <script type="module" src="/static/js/audioInit.js"></script>
+    <script type="module" src="/static/js/audioPlayer.js"></script>
+   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+   <script>
+
+// Variables globales
+    let map;
+    let dronMarker;
+    let dronPath;
+    let lastPosition;
+    let isMoving = false;
+    let movementInterval = null;
+
+
+    // Inicialización del mapa
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Iniciando aplicación...");
+
+        initMap();
+
+        initializeMQTT();
+
+        fetch('/cambiar_personalidad', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                personalidad: 'normal'
+            })
+        });
+
+        console.log("Iniciando sistema de telemetría...");
+        actualizarPosicionDron();
+        const intervalId = setInterval(actualizarPosicionDron, 1000);
+        window.telemetryInterval = intervalId;
+
+        setupEventListeners();
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                clearInterval(window.telemetryInterval);
+            } else {
+                window.telemetryInterval = setInterval(actualizarPosicionDron, 1000);
+            }
+        });
+    });
+
+
+    function initMap() {
+        console.log("Inicializando mapa...");
+        const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 21
+        });
+
+        map = L.map('dron-map', {
+            layers: [satellite],
+            maxZoom: 21,
+            minZoom: 1
+        }).setView([41.2763225, 1.9883753], 19);
+
+        dronPath = L.polyline([], {color: 'red'}).addTo(map);
+
+        console.log("Mapa inicializado correctamente");
+    }
+
+    function setupEventListeners() {
+        document.querySelectorAll('.basic-controls .control-btn').forEach(btn => {
+            const accion = btn.textContent.trim();
+            switch(accion) {
+                case 'Conectar':
+                    btn.onclick = conectarDron;
+                    break;
+                case 'Despegar':
+                    btn.onclick = despegarDron;
+                    break;
+                case 'Aterrizar':
+                    btn.onclick = aterrizarDron;
+                    break;
+                case 'Desconectar':
+                    btn.onclick = desconectarDron;
+                    break;
+            }
+        });
+
+        //botones de dirección
+        document.querySelectorAll('.direction-pad .control-btn').forEach(btn => {
+            btn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                iniciarMovimiento(this.getAttribute('data-direction'));
+            });
+            btn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                detenerMovimiento();
+            });
+            // Para pruebas en PC
+            btn.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                iniciarMovimiento(this.getAttribute('data-direction'));
+            });
+            btn.addEventListener('mouseup', function(e) {
+                e.preventDefault();
+                detenerMovimiento();
+            });
+            btn.addEventListener('mouseleave', function(e) {
+                e.preventDefault();
+                detenerMovimiento();
+            });
+        });
+
+
+        //botón de hablar
+
+        const hablarBtn = document.getElementById('hablar-btn');
+            if (hablarBtn) {
+                hablarBtn.addEventListener('click', async () => {
+                    try {
+                        await window.audioPlayerInstance.initialize();
+                        console.log('Audio inicializado por click');
+
+                    } catch (error) {
+                        console.error('Error inicializando audio:', error);
+                    }
+                });
+            }
+        }
+
+        setupPersonalityButtons();
+
+
+    const socket = io();
+    console.log ("conectado al web socket");
+    socket.on('frame_Websocket_from_ground', function(data) {
+    <!-- cada vez que recibo un frame por el websocket lo coloco en su sitio-->
+    console.log ("recibo frame de la estacion de tierra por websocket");
+    document.getElementById('video-stream').src = 'data:image/jpeg;base64,' + data;
+    });
+
+
+    let showingCamera = false;
+    function toggleView() {
+        const mapContainer = document.getElementById('map-container');
+        const cameraContainer = document.getElementById('camera-container');
+        const toggleBtn = document.getElementById('toggle-view-btn');
+        const galeria = document.getElementById('galeria-container');
+
+        if (!showingCamera) {
+            mapContainer.style.display = 'none';
+            cameraContainer.style.display = 'block';
+            toggleBtn.textContent = 'Ver Mapa';
+            galeria.style.display = 'none';
+        } else {
+            mapContainer.style.display = 'block';
+            cameraContainer.style.display = 'none';
+            toggleBtn.textContent = 'Ver Cámara';
+            galeria.style.display = 'none';
+
+        }
+
+        showingCamera = !showingCamera;
+    }
+
+    function initializeMQTT() {
+        fetch('/api/conectar_broker', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message.includes('conectado')) {
+                console.log('Broker MQTT conectado');
+            }
+        })
+        .catch(error => console.error('Error al conectar broker:', error));
+    }
+
+
+/*
+    function actualizarTelemetria(telemetria) {
+        document.getElementById('lat-display').textContent = `Lat: ${telemetria.lat || '--'}`;
+        document.getElementById('lon-display').textContent = `Lon: ${telemetria.lon || '--'}`;
+        document.getElementById('alt-display').textContent = `Alt: ${telemetria.alt || '--'}m`;
+        document.getElementById('speed-display').textContent = `Vel: ${telemetria.velocidad || '--'}m/s`;
+    }
+*/
+
+    function actualizarPosicionDron() {
+    console.log("Actualizando telemetría...");
+    fetch('/telemetria')
+        .then(response => response.json())
+        .then(data => {
+            if (data.estado === "success" && data.data) {
+                console.log("Datos telemetría recibidos:", data.data);
+                if (data.data.lat && data.data.lon) {
+                    const isFlying = data.data.state === "flying";
+                    const dronIcon = isFlying ? '🔴' : '⭕';
+                    const rawHeading = data.data.heading || 0;
+                    const adjustedHeading = rawHeading - 90;
+                    console.log("Raw heading:", rawHeading, "Adjusted heading:", adjustedHeading);
+
+                    actualizarMarcadorDron(
+                        [data.data.lat, data.data.lon],
+                        dronIcon,
+                        adjustedHeading
+                    );
+                    document.getElementById('texto-altura').textContent = data.data.alt.toFixed(2);
+                    document.getElementById('texto-velocidad').textContent = data.data.groundSpeed.toFixed(2);
+
+                }
+            } else {
+                console.warn("No se recibieron datos de telemetría válidos");
+            }
+        })
+        .catch(error => console.error('Error obteniendo telemetría:', error));
+}
+
+function actualizarMarcadorDron(newLatLng, dronIcon, heading) {
+    const iconStyle = `
+        .dron-icon {
+            position: relative;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            transform: rotate(${heading}deg);
+            transition: transform 0.3s ease;
+        }
+        .direction-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            color: #000000;
+            pointer-events: none;
+        }
+    `;
+
+
+    let styleElement = document.getElementById('dron-icon-style');
+    if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = 'dron-icon-style';
+        document.head.appendChild(styleElement);
+    }
+    styleElement.textContent = iconStyle;
+
+    const iconHtml = `
+        <div class="dron-icon">
+            ${dronIcon}
+            <div class="direction-arrow">➤</div>
+        </div>
+    `;
+
+    if (!dronMarker) {
+        dronMarker = L.marker(newLatLng, {
+            icon: L.divIcon({
+                className: 'dron-icon-wrapper',
+                html: iconHtml,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12]
+            })
+        }).addTo(map);
+        map.setView(newLatLng, 19);
+    } else {
+        dronMarker.setIcon(L.divIcon({
+            className: 'dron-icon-wrapper',
+            html: iconHtml,
+            iconSize: [25, 25],
+            iconAnchor: [12, 12]
+        }));
+        dronMarker.setLatLng(newLatLng);
+    }
+
+    actualizarRuta(newLatLng);
+}
+
+    function actualizarRuta(newLatLng) {
+        if (lastPosition) {
+            const dist = map.distance(lastPosition, newLatLng);
+            if (dist < 1000) {
+                dronPath.addLatLng(newLatLng);
+            } else {
+                dronPath.removeFrom(map);
+                dronPath = L.polyline([], {color: 'red'}).addTo(map);
+            }
+        }
+        lastPosition = newLatLng;
+    }
+
+    function limpiarRuta() {
+        if (dronPath) {
+            dronPath.removeFrom(map); // Quita el path actual del mapa
+            dronPath = L.polyline([], { color: 'red' }).addTo(map); // Reinicia el path vacío
+
+        }
+    }
+
+    function switchMode(mode) {
+    const conversationMode = document.getElementById('conversation-mode');
+    const manualMode = document.getElementById('manual-mode');
+    const buttons = document.querySelectorAll('.mode-btn');
+
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    conversationMode.style.display = 'none';
+    manualMode.style.display = 'none';
+
+    if (mode === 'conversation') {
+        conversationMode.style.display = 'flex';
+    } else {
+        manualMode.style.display = 'flex';
+    }
+}
+
+  function iniciarMovimiento(direccion) {
+        const moverDron = () => {
+            fetch('/start_movement2', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direction: direccion })
+            });
+        };
+        moverDron();
+        movementInterval = setInterval(moverDron, 100);
+
+        const btn = document.querySelector(`[data-direction="${direccion}"]`);
+        if (btn) {
+            btn.classList.add('active');
+            btn.style.background = '#4CAF50';
+        }
+  }
+
+  function detenerMovimiento() {
+        clearInterval(movementInterval);
+        movementInterval = null;
+
+        fetch('/detener_movimiento', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(() => {
+            document.querySelectorAll('.control-btn[data-direction]').forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.background = '#ec7412';
+            });
+        });
+  }
+
+
+  function conectarDron() {
+    console.log("Intentando conectar dron...");
+    fetch('/conexion_dron', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Respuesta recibida MQTT:", data);
+        const btn = document.querySelector('.control-btn[onclick="conectarDron()"]');
+
+        if (data.estado === "success") {
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = '#4CAF50'; // Verde
+            }
+            console.log('Dron conectado correctamente');
+        } else {
+            if (btn) {
+                btn.classList.remove('active');
+                btn.style.background = '#ff0000'; // Rojo
+                setTimeout(() => {
+                    btn.style.background = '#ec7412'; // Naranja (color original)
+                }, 2000);
+            }
+            console.error('Error al conectar el dron:', data.mensaje || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error en conexión:', error);
+        const btn = document.querySelector('.control-btn[onclick="conectarDron()"]');
+        if (btn) {
+            btn.classList.remove('active');
+            btn.style.background = '#ff0000'; // Rojo
+            setTimeout(() => {
+                btn.style.background = '#ec7412'; // Naranja (color original)
+            }, 2000);
+        }
+    });
+  }
+
+function despegarDron() {
+    console.log("Intentando despegar dron...");
+    const btnDespegar = document.querySelector('.control-btn[onclick="despegarDron()"]');
+
+    fetch('/despegar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({metros: 3})
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Respuesta despegue MQTT:", data);
+
+        if (data.estado === "success") {
+            const checkState = setInterval(() => {
+                fetch('/telemetria')
+                    .then(response => response.json())
+                    .then(telemetria => {
+                        console.log("Estado actual:", telemetria.data.state);
+
+                        switch(telemetria.data.state) {
+                            case "arming":
+                                btnDespegar.textContent = "Armando...";
+                                btnDespegar.style.background = '#FFA500';
+                                btnDespegar.disabled = true;
+                                break;
+                            case "takingOff":
+                                btnDespegar.textContent = "Despegando...";
+                                btnDespegar.style.background = '#FFC107';
+                                btnDespegar.disabled = true;
+                                break;
+                            case "flying":
+                                btnDespegar.textContent = "Despegar";
+                                btnDespegar.style.background = '#4CAF50';
+                                btnDespegar.classList.add('active');
+                                btnDespegar.disabled = false;
+                                clearInterval(checkState);
+                                break;
+                            case "disconnected":
+                            case "error":
+                                btnDespegar.textContent = "Error";
+                                btnDespegar.style.background = '#ff0000';
+                                btnDespegar.disabled = false;
+                                setTimeout(() => {
+                                    btnDespegar.style.background = '#ec7412';
+                                    btnDespegar.textContent = "Despegar";
+                                }, 2000);
+                                clearInterval(checkState);
+                                break;
+                        }
+                    });
+            }, 1000);
+
+            // tiemout por seguridad? no se
+            setTimeout(() => {
+                clearInterval(checkState);
+            }, 15000);
+        } else {
+            btnDespegar.textContent = "Error";
+            btnDespegar.style.background = '#ff0000';
+            btnDespegar.disabled = false;
+            setTimeout(() => {
+                btnDespegar.style.background = '#ec7412';
+                btnDespegar.textContent = "Despegar";
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Error en despegue:', error);
+        btnDespegar.textContent = "Error";
+        btnDespegar.style.background = '#ff0000';
+        btnDespegar.disabled = false;
+        setTimeout(() => {
+            btnDespegar.style.background = '#ec7412';
+            btnDespegar.textContent = "Despegar";
+        }, 2000);
+    });
+}
+
+function aterrizarDron() {
+    console.log("Intentando aterrizar dron...");
+    const btnAterrizar = document.querySelector('.control-btn[onclick="aterrizarDron()"]');
+    const btnDespegar = document.querySelector('.control-btn[onclick="despegarDron()"]');
+
+    if (btnAterrizar) {
+        btnAterrizar.textContent = "Aterrizando...";
+        btnAterrizar.style.background = '#FFC107'; // Amarillo
+        btnAterrizar.disabled = true;
+    }
+
+    fetch('/aterrizar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Respuesta aterrizaje MQTT:", data);
+
+        if (data.estado === "success") {
+            if (btnAterrizar) {
+
+                setTimeout(() => {
+                    if (btnAterrizar) {
+                        btnAterrizar.textContent = "Aterrizar";
+                        btnAterrizar.style.background = '#ec7412';
+                        btnAterrizar.classList.remove('active');
+                        btnAterrizar.disabled = false;
+                    }
+                }, 4000);
+            }
+
+            if (btnDespegar) {
+                btnDespegar.style.background = '#ec7412';
+                btnDespegar.classList.remove('active');
+            }
+
+            console.log('Dron aterrizado correctamente');
+        } else {
+            if (btnAterrizar) {
+                btnAterrizar.textContent = "Aterrizar";
+                btnAterrizar.style.background = '#ff0000'; // Rojo
+                btnAterrizar.disabled = false;
+                setTimeout(() => {
+                    btnAterrizar.style.background = '#ec7412'; // Naranja
+                }, 2000);
+            }
+            console.error('Error al aterrizar el dron:', data.mensaje || 'Error desconocido');
+        }
+    })
+
+    .catch(error => {
+        console.error('Error en aterrizaje:', error);
+        if (btnAterrizar) {
+            btnAterrizar.textContent = "Aterrizar";
+            btnAterrizar.style.background = '#ff0000';
+            btnAterrizar.disabled = false;
+            setTimeout(() => {
+                btnAterrizar.style.background = '#ec7412';
+            }, 2000);
+        }
+    });
+}
+
+function desconectarDron() {
+    console.log("Intentando desconectar dron...");
+    fetch('/desconectar_dron', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Respuesta desconexión MQTT:", data);
+        const desconectarBtn = document.querySelector('.control-btn[onclick="desconectarDron()"]');
+        const conectarBtn = document.querySelector('.control-btn[onclick="conectarDron()"]');
+
+        if (data.estado === "success") {
+            if (desconectarBtn) {
+                desconectarBtn.classList.add('active');
+                desconectarBtn.style.background = '#4CAF50'; // Verde
+
+                setTimeout(() => {
+                    desconectarBtn.style.background = '#ec7412';
+                    desconectarBtn.classList.remove('active');
+                }, 2000);
+            }
+
+            if (conectarBtn) {
+                conectarBtn.classList.remove('active');
+                conectarBtn.style.background = '#ec7412';
+            }
+            console.log('Dron desconectado correctamente');
+        } else {
+            if (desconectarBtn) {
+                desconectarBtn.style.background = '#ff0000'; // Rojo
+                setTimeout(() => {
+                    desconectarBtn.style.background = '#ec7412'; // Naranja (color original)
+                }, 2000);
+            }
+            console.error('Error al desconectar el dron:', data.mensaje || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error en desconexión:', error);
+        const desconectarBtn = document.querySelector('.control-btn[onclick="desconectarDron()"]');
+        if (desconectarBtn) {
+            desconectarBtn.style.background = '#ff0000'; // Rojo
+            setTimeout(() => {
+                desconectarBtn.style.background = '#ec7412'; // Naranja (color original)
+            }, 2000);
+        }
+    });
+}
+// Funciones de voz
+    function iniciarCapturaDeAudio() {
+        document.getElementById('texto-transcrito').textContent = "Escuchando...";
+        fetch('/iniciar_captura', { method: 'POST' })
+            .then(response => response.json())
+            .catch(error => console.error('Error captura:', error));
+    }
+
+    function detenerCapturaConRetraso() {
+        setTimeout(detenerCapturaDeAudio, 1500);
+    }
+
+    function detenerCapturaDeAudio() {
+        fetch('/detener_captura', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                const transcripcion = data.transcription || "No se pudo transcribir";
+                document.getElementById('texto-transcrito').textContent = transcripcion;
+                if (transcripcion !== "No se pudo transcribir") {
+                    procesarComando(transcripcion);
+                }
+            })
+            .catch(error => console.error('Error procesamiento:', error));
+    }
+
+    function procesarComando(comando) {
+    fetch('/enviar_comandoIA', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({comando: comando})
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('texto-respuesta').textContent = data.message;
+
+        if (data.audio_url) {
+            try {
+                window.audioPlayerInstance.play(data.audio_url);
+            } catch (error) {
+                console.error('Error reproduciendo audio:', error);
+            }
+        }
+
+        if (data.estado === 'confirmación' && data.comando_pendiente) {
+            ejecutarAccion(data.comando_pendiente);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('texto-respuesta').textContent =
+            'Error al procesar el comando. Por favor, intenta de nuevo.';
+    });
+}
+
+function setupPersonalityButtons() {
+        document.querySelectorAll('.personality-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.personality-btn').forEach(b =>
+                    b.classList.remove('active'));
+                this.classList.add('active');
+
+                fetch('/cambiar_personalidad', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        personalidad: this.getAttribute('data-personality')
+                    })
+                });
+            });
+        });
+}
+
+    // Manejo de orientación
+    window.addEventListener('orientationchange', function() {
+       setTimeout(function() {
+           map.invalidateSize();
+           // Si hay posición del dron, centrar mapa
+           if (dronMarker) {
+               map.setView(dronMarker.getLatLng(), map.getZoom());
+           }
+       }, 200);
+    });
+
+    // Prevenir zoom y scroll innecesarios en paneles
+    let touchStartY;
+    document.addEventListener('touchstart', function(e) {
+       touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', function(e) {
+       const touchY = e.touches[0].clientY;
+       const scrollingElement = e.target.closest('.control-panel, .transcription');
+       if (!scrollingElement) {
+           e.preventDefault();
+           return;
+       }
+       const scrollTop = scrollingElement.scrollTop;
+       const scrollHeight = scrollingElement.scrollHeight;
+       const height = scrollingElement.clientHeight;
+       if (
+           (scrollTop === 0 && touchY > touchStartY) ||
+           (scrollTop + height >= scrollHeight && touchY < touchStartY)
+       ) {
+           e.preventDefault();
+       }
+  }, { passive: false });
+
+
+function foto() {
+    const btn = document.getElementById('botonFotoWebSockets');
+    const originalColor = btn.style.backgroundColor;
+
+    // Emitimos un evento de socket al servidor para tomar la foto
+    socket.emit('foto');
+
+    // Cambiar color a verde de forma temporal para dar feedback
+    btn.style.backgroundColor = 'green';
+    setTimeout(() => {
+        btn.style.backgroundColor = originalColor;
+    }, 2000);
+}
+
+function recordWebsockets() {
+    const btn = document.getElementById('botonRecordWebSockets');
+    const originalColor = btn.style.backgroundColor;
+    btn.classList.toggle("activo");
+
+    if (btn.classList.contains("activo")) {
+        btn.textContent = "Detener grabación";
+
+        socket.emit('start_recording');
+        btn.style.backgroundColor = 'green';
+        setTimeout(() => {
+            btn.style.backgroundColor = originalColor;
+        }, 2000);
+
+    } else {
+        btn.textContent = "Iniciar grabación";
+
+        socket.emit('stop_recording');
+        btn.style.backgroundColor = 'green';
+        setTimeout(() => {
+            btn.style.backgroundColor = originalColor;
+        }, 2000);
+    }
+}
+
+// Función que muestra la galeria de fotos y videos
+       function galeria(){
+          document.getElementById('galeria-container').style.display = 'block';
+          document.getElementById('map-container').style.display = 'none';
+          document.getElementById('camera-container').style.display = 'none';
+
+          const tabs = document.querySelectorAll('.tab-btn');
+          const contenidos = document.querySelectorAll('.tab-content');
+
+          tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+              tabs.forEach(t => t.classList.remove('active'));
+              contenidos.forEach(c => c.style.display = 'none');
+
+              tab.classList.add('active');
+              document.getElementById('galeria-' + tab.dataset.tab).style.display = 'block';
+            });
+          });
+
+          // Botones fotos
+          document.getElementById('prev-fotos').addEventListener('click', () => {
+            mostrarFoto(indiceFotos - 1);
+          });
+          document.getElementById('next-fotos').addEventListener('click', () => {
+            mostrarFoto(indiceFotos + 1);
+          });
+
+          // Botones videos
+          document.getElementById('prev-videos').addEventListener('click', () => {
+            mostrarVideo(indiceVideos - 1);
+          });
+          document.getElementById('next-videos').addEventListener('click', () => {
+            mostrarVideo(indiceVideos + 1);
+          });
+
+          cargarFotos();
+          cargarVideos()
+       }
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contenidos = document.querySelectorAll('.tab-content');
+
+        let fotosLista = [];
+        let videosLista = [];
+        let indiceFotos = 0;
+        let indiceVideos = 0;
+
+        function mostrarFoto(index) {
+          if (fotosLista.length === 0) return;
+          if (index < 0) index = fotosLista.length - 1;
+          if (index >= fotosLista.length) index = 0;
+          indiceFotos = index;
+
+          const nombreFoto = fotosLista[indiceFotos];
+
+          document.getElementById('imagen-grande').innerHTML = `
+            <img src="/fotos/${nombreFoto}" alt="Foto grande" style="width:100%; max-height:450px; object-fit: contain; border-radius:8px;">
+          `;
+
+          // Mostrar nombre
+          document.getElementById('nombre-foto').textContent = nombreFoto;
+        }
+
+        function mostrarVideo(index) {
+          if (videosLista.length === 0) return;
+          if (index < 0) index = videosLista.length - 1;
+          if (index >= videosLista.length) index = 0;
+          indiceVideos = index;
+
+          const nombreVideo = videosLista[indiceVideos];
+
+          document.getElementById('video-grande').innerHTML = `
+            <video
+              controls
+              style="width:100%; max-height:450px; border-radius:8px; background-color: black;">
+              <source src="/videos/${nombreVideo}" type="video/mp4">
+              Tu navegador no soporta video.
+            </video>
+          `;
+
+          // Mostrar nombre
+          document.getElementById('nombre-video').textContent = nombreVideo;
+        }
+          async function cargarFotos() {
+          const res = await fetch('/lista_fotos');
+          const fotos = await res.json();
+          fotosLista = fotos || [];
+          indiceFotos = 0;
+          mostrarFoto(indiceFotos);
+        }
+
+        async function cargarVideos() {
+          const res = await fetch('/lista_videos');
+          const videos = await res.json();
+          videosLista = videos || [];
+          indiceVideos = 0;
+          mostrarVideo(indiceVideos);
+        }
+
+        // Manejo de pestañas
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            contenidos.forEach(c => c.style.display = 'none');
+
+            tab.classList.add('active');
+            document.getElementById('galeria-' + tab.dataset.tab).style.display = 'block';
+
+            if(tab.dataset.tab === 'fotos'){
+              cargarFotos();
+            } else {
+              cargarVideos();
+            }
+          });
+        });
+
+
+
+   </script>
+</body>
+</html>
