@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # Uso el el puerto 5000 para el servidor en desarrollo
     # y el puerto 8104 para el servidor en producción (que es uno de los puertos abiertos en dronseetac.upc.edu)
     flask_thread = Thread(target=lambda: app.run(host='0.0.0.0', port=8104, debug=True, use_reloader=False,
-       ssl_context=('C:/Users/Mariina/Desktop/Repositorio/WebAppHTTP/openssl/cert.pem', 'C:/Users/Mariina/Desktop/Repositorio/WebAppHTTP/openssl/key.pem')))
+       ssl_context=('/etc/letsencrypt/live/dronseetac.upc.edu/cert.pem', '/etc/letsencrypt/live/dronseetac.upc.edu/privkey.pem')))
     flask_thread.start()
     # liberamos el puerto que usaré el websocket
     print("Puerto liberado")
