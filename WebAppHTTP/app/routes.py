@@ -32,7 +32,7 @@ armado=False
 recording = False
 video_writer = None
 taking_photo = False
-voice_recognition = VoiceRecognitionSystem("/root/marina/RepoTFG/WebAppHTTP/vosk-model-small-es-0.42")
+voice_recognition = VoiceRecognitionSystem("C:/Users/Mariina/Desktop/Repositorio/WebAppHTTP/vosk-model-small-es-0.42")
 
 
 @main.route('/static/js/<path:filename>')
@@ -583,7 +583,7 @@ def handle_video_frame(data):
                 if not os.path.exists(carpeta_videos):
                     os.makedirs(carpeta_videos)
                 filepath = os.path.join(carpeta_videos, filename)
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                fourcc = cv2.VideoWriter_fourcc(*'avc1')
                 video_writer = cv2.VideoWriter(filepath, fourcc, 10.0, (width, height))
 
             if frame is None:
@@ -621,6 +621,9 @@ def start_recording():
 
     print(f"Iniciando grabación")
     recording = True
+
+
+
 
 @socketio.on('stop_recording')
 def stop_recording():
@@ -693,13 +696,15 @@ def recibir_video(data):
     except Exception as e:
         print(f"Error al guardar el video: {e}")
         return f"Error: {e}"
+
 @main.route('/videos/<path:filename>')
 def servir_video(filename):
-    return send_from_directory("videos", filename)
+    videos_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "videos")
+    print(f"Petición para video: {filename} en ruta: {videos_path}")
+    return send_from_directory(videos_path, filename)
 
 @main.route('/lista_videos')
 def lista_videos():
-    import os
     videos_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "videos")
     videos = [f for f in os.listdir(videos_path) if f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))]
     return jsonify(videos)

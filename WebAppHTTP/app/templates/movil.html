@@ -1585,14 +1585,24 @@ function recordWebsockets() {
 
           const nombreVideo = videosLista[indiceVideos];
 
-          document.getElementById('video-grande').innerHTML = `
-            <video
-              controls
-              style="width:100%; max-height:450px; border-radius:8px; background-color: black;">
-              <source src="/videos/${nombreVideo}" type="video/mp4">
-              Tu navegador no soporta video.
-            </video>
-          `;
+          const contenedor = document.getElementById('video-grande');
+          contenedor.innerHTML = ''; // Limpiar contenido anterior
+
+          const video = document.createElement('video');
+          video.setAttribute('controls', '');
+          video.setAttribute('playsinline', '');
+          video.setAttribute('muted', ''); // si deseas autoplay más adelante
+          video.style.width = '100%';
+          video.style.maxHeight = '450px';
+          video.style.borderRadius = '8px';
+          video.style.backgroundColor = 'black';
+
+          const source = document.createElement('source');
+          source.src = `/videos/${nombreVideo}`;
+          source.type = 'video/mp4';
+
+          video.appendChild(source);
+          contenedor.appendChild(video);
 
           // Mostrar nombre
           document.getElementById('nombre-video').textContent = nombreVideo;
