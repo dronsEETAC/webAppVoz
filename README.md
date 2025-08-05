@@ -14,7 +14,8 @@ Este proyecto se ha desarrollado como una contribución al proyecto colaborativo
 
 ## Demo
 
-**Primera version del programa creda por Victor sorolla (febrero 2025)**
+## Primera version del programa creda por Victor sorolla (febrero 2025)
+
 Para comprender el funcionamiento de esta aplicación, puedes consultar el siguiente **video**: https://youtu.be/ArKzQa9z8J8
 
 En el video se emplea el simulador MAVLink (Mission Planner)  para enseñar cómo el sistema recibe y ejecuta órdenes por voz, así como la planificación de rutas y el cambio a modo manual.
@@ -25,7 +26,8 @@ En él se describe la organización de los módulos (procesamiento de audio, ló
 
 En el siguiente repositorio se encuentra la version creada por victor: https://github.com/VictorSorolla/victorsorolla-AI-Drone-Voice-Control
 
-**Segunda version del programa creda por Marina Pastor (Julio 2025)**
+## Segunda version del programa creda por Marina Pastor (Julio 2025)
+
 Para comprender el funcionamiento de esta aplicación, puedes consultar los siguientes **videos**: [https://youtu.be/ArKzQa9z8J8](https://www.youtube.com/playlist?list=PLyAtSQhMsD4rP2g-Iay0UZttNdvj1u8uk)
 
 
